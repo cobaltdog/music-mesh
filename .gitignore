@@ -1,0 +1,19 @@
+# Personal library data never belongs in the repo
+*.mesh
+*.flac
+*.mp3
+*.m4a
+*.wav
+*.aif
+*.aiff
+*.ogg
+*.opus
+cover.jpg
+folder.jpg
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+node_modules/
