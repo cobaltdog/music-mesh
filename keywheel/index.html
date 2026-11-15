@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0b10">
+<title>Key Wheel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b10; --panel:#15151d; --panel2:#1c1c26; --line:#2a2a36;
+    --text:#f2f2f7; --muted:#9a9aab;
+    --harmonic:#3ddc97; --energy:#ffb547; --creative:#b48cff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text)}
+  body{
+    font-family:"Space Grotesk",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 14px) calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 14px);
+    touch-action:manipulation; -webkit-user-select:none; user-select:none;
+    max-width:520px; margin:0 auto;
+  }
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0}
+  .seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .seg button{
+    font:inherit;font-size:13px;font-weight:600;color:var(--muted);background:none;border:0;
+    padding:6px 12px;border-radius:999px;cursor:pointer
+  }
+  .seg button.on{background:var(--text);color:var(--bg)}
+
+  #wheelWrap{width:100%;max-width:400px;margin:0 auto;aspect-ratio:1/1}
+  #wheel{width:100%;height:100%;display:block;overflow:visible}
+  #wheel .seg-path{cursor:pointer;transition:opacity .18s ease}
+  #wheel text{pointer-events:none;font-family:inherit;font-weight:700}
+
+  .pathbar{display:flex;align-items:center;gap:8px;margin:2px 0 12px}
+  .trail{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+  .trail::-webkit-scrollbar{display:none}
+  .trail span{flex:none;font-size:13px;font-weight:600;padding:5px 9px;border-radius:8px;background:var(--panel);color:var(--muted)}
+  .trail span.cur{background:var(--panel2);color:var(--text);outline:1px solid var(--line)}
+  .trail .arrow{background:none;padding:5px 0;color:#55556a}
+  .iconbtn{
+    flex:none;font:inherit;font-size:13px;font-weight:600;color:var(--text);
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 11px;cursor:pointer
+  }
+  .iconbtn:disabled{opacity:.35}
+
+  .filters{display:flex;gap:8px;margin-bottom:12px}
+  .chipf{
+    flex:1;font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:9px 6px;cursor:pointer;
+    background:var(--panel);color:var(--muted);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;gap:6px
+  }
+  .chipf i{width:9px;height:9px;border-radius:50%;display:inline-block;background:currentColor;opacity:.35}
+  .chipf.on{color:var(--text);border-color:var(--c)}
+  .chipf.on i{background:var(--c);opacity:1}
+
+  .group h2{
+    font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    margin:16px 2px 8px;display:flex;align-items:center;gap:8px
+  }
+  .group h2 i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+  .card{
+    width:100%;display:flex;align-items:center;gap:12px;text-align:left;font:inherit;color:var(--text);
+    background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c);
+    border-radius:14px;padding:10px 12px 10px 10px;margin-bottom:8px;cursor:pointer
+  }
+  .card:active{background:var(--panel2);transform:scale(.99)}
+  .kchip{
+    flex:none;width:58px;height:52px;border-radius:10px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;color:#0b0b10;font-weight:700;font-size:19px;line-height:1
+  }
+  .kchip small{font-size:12px;font-weight:600;margin-top:4px;opacity:.75}
+  .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .word{font-size:16px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .word b{font-size:14px;color:var(--c);font-weight:700}
+  .desc{font-size:13px;color:var(--muted);line-height:1.35}
+  .go{flex:none;color:#55556a;font-size:22px}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:20px}
+  .hint{color:#6c6c80;font-size:12px;text-align:center;margin-top:18px;line-height:1.5}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Key Wheel</h1>
+    <div class="seg" id="notation">
+      <button data-v="camelot">8A</button>
+      <button data-v="key">Am</button>
+    </div>
+  </header>
+
+  <div id="wheelWrap"><svg id="wheel" viewBox="0 0 400 400" aria-label="Camelot key wheel"></svg></div>
+
+  <div class="pathbar">
+    <div class="trail" id="trail"></div>
+    <button class="iconbtn" id="undo">Undo</button>
+    <button class="iconbtn" id="reset">Clear</button>
+  </div>
+
+  <div class="filters" id="filters">
+    <button class="chipf on" data-t="harmonic" style="--c:var(--harmonic)"><i></i>Harmonic</button>
+    <button class="chipf on" data-t="energy" style="--c:var(--energy)"><i></i>Energy</button>
+    <button class="chipf on" data-t="creative" style="--c:var(--creative)"><i></i>Creative</button>
+  </div>
+
+  <div id="list"></div>
+
+  <p class="hint">Tap a key on the wheel to set what's playing.<br>Tap a transition to move to it — your path builds up above.</p>
+
+<script>
+(() => {
+  const MINOR = ['', 'G♯m','E♭m','B♭m','Fm','Cm','Gm','Dm','Am','Em','Bm','F♯m','C♯m'];
+  const MAJOR = ['', 'B','F♯','D♭','A♭','E♭','B♭','F','C','G','D','A','E'];
+  const TIERS = {
+    harmonic: {label:'Harmonic', sub:'safe, seamless blends', color:'var(--harmonic)', hex:'#3ddc97'},
+    energy:   {label:'Energy',   sub:'key-change lifts & drops', color:'var(--energy)', hex:'#ffb547'},
+    creative: {label:'Creative', sub:'mood flips & diagonals', color:'var(--creative)', hex:'#b48cff'}
+  };
+  const ORDER = ['harmonic','energy','creative'];
+
+  const w = n => ((n - 1) % 12 + 12) % 12 + 1;
+  const id = (n, m) => n + m;
+  const shortName = (n, m) => m === 'A' ? MINOR[n] : MAJOR[n];
+  const fullName = (n, m) => m === 'A' ? MINOR[n].slice(0, -1) + ' minor' : MAJOR[n] + ' major';
+  const hue = n => ((n - 1) * 30 + 340) % 360;
+  const fill = (n, m) => `hsl(${hue(n)} ${m === 'B' ? 72 : 62}% ${m === 'B' ? 64 : 52}%)`;
+
+  function transitions(n, m) {
+    const o = m === 'A' ? 'B' : 'A';
+    const T = [
+      {n, m, tier:'harmonic', word:'Perfect Match', dir:'=', desc:'Same key. Blend as long as you like.'},
+      {n:w(n+1), m, tier:'harmonic', word:'Energy Up', dir:'↑', desc:'+1 on the wheel (up a fifth). Gentle, natural lift.'},
+      {n:w(n-1), m, tier:'harmonic', word:'Energy Down', dir:'↓', desc:'−1 on the wheel (down a fifth). Eases the room down.'},
+      m === 'A'
+        ? {n, m:o, tier:'harmonic', word:'Brighten', dir:'☀', desc:'Relative major — same notes, happier feel.'}
+        : {n, m:o, tier:'harmonic', word:'Darken', dir:'☾', desc:'Relative minor — same notes, moodier feel.'},
+
+      {n:w(n+2), m, tier:'energy', word:'Power Boost', dir:'⇈', desc:'+2 (up a whole tone). Big lift — keep the blend short.'},
+      {n:w(n+7), m, tier:'energy', word:'Semitone Lift', dir:'⇈', desc:'+7 (up a half-step). The classic key-change pump; mix on a cut or drop.'},
+      {n:w(n-2), m, tier:'energy', word:'Cool Down', dir:'⇊', desc:'−2 (down a whole tone). Deliberate energy drop — cut, don’t blend.'},
+
+      m === 'A'
+        ? {n:w(n+1), m:'B', tier:'creative', word:'Diagonal Lift', dir:'↗', desc:'Up one and over to major. Smooth lift with a brighter colour.'}
+        : {n:w(n-1), m:'A', tier:'creative', word:'Diagonal Drop', dir:'↙', desc:'Down one and over to minor. Smooth slide into darker territory.'},
+      m === 'A'
+        ? {n:w(n+3), m:'B', tier:'creative', word:'Parallel Major', dir:'⇄', desc:'Same root note, flips to major. Dramatic mood lift — use a drop or breakdown.'}
+        : {n:w(n-3), m:'A', tier:'creative', word:'Parallel Minor', dir:'⇄', desc:'Same root note, flips to minor. Dramatic mood darkening — use a drop or breakdown.'}
+    ];
+    return T;
+  }
+
+  // ---------- state ----------
+  const store = {
+    get(k, d){ try { const v = localStorage.getItem('kw_' + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+    set(k, v){ try { localStorage.setItem('kw_' + k, JSON.stringify(v)); } catch(e){} }
+  };
+  let notation = store.get('notation', 'camelot');
+  let history = store.get('history', [{n:8, m:'A'}]);
+  if (!Array.isArray(history) || !history.length) history = [{n:8, m:'A'}];
+  let tiersOn = new Set(store.get('tiers', ORDER));
+  const cur = () => history[history.length - 1];
+  const save = () => { store.set('notation', notation); store.set('history', history.slice(-40)); store.set('tiers', [...tiersOn]); };
+  const label = (n, m) => notation === 'camelot' ? id(n, m) : shortName(n, m);
+
+  // ---------- wheel ----------
+  const svg = document.getElementById('wheel');
+  const C = 200, R = {in0:66, in1:122, out0:124, out1:192};
+  const pt = (a, r) => [C + r * Math.sin(a), C - r * Math.cos(a)];
+  function arc(n, r0, r1) {
+    const mid = (n % 12) * Math.PI / 6, h = Math.PI / 12 - 0.012;
+    const a0 = mid - h, a1 = mid + h;
+    const [x0,y0] = pt(a0, r1), [x1,y1] = pt(a1, r1), [x2,y2] = pt(a1, r0), [x3,y3] = pt(a0, r0);
+    return `M${x0},${y0} A${r1},${r1} 0 0 1 ${x1},${y1} L${x2},${y2} A${r0},${r0} 0 0 0 ${x3},${y3} Z`;
+  }
+
+  function drawWheel() {
+    const c = cur();
+    const targets = {};
+    transitions(c.n, c.m).forEach(t => {
+      if (!tiersOn.has(t.tier)) return;
+      const k = id(t.n, t.m);
+      if (!targets[k]) targets[k] = t.tier;
+    });
+    const items = [];
+    for (let n = 1; n <= 12; n++) for (const m of ['A','B']) {
+      const k = id(n, m), isCur = n === c.n && m === c.m, tier = targets[k];
+      const rank = isCur ? 2 : tier ? 1 : 0;
+      items.push({n, m, k, isCur, tier, rank});
+    }
+    items.sort((a, b) => a.rank - b.rank);
+    let html = '';
+    for (const it of items) {
+      const [r0, r1] = it.m === 'A' ? [R.in0, R.in1] : [R.out0, R.out1];
+      const op = it.isCur || it.tier ? 1 : 0.2;
+      const stroke = it.isCur ? '#ffffff' : it.tier ? TIERS[it.tier].hex : 'none';
+      const sw = it.isCur ? 4 : it.tier ? 3 : 0;
+      const mid = (it.n % 12) * Math.PI / 6, rm = (r0 + r1) / 2;
+      const [tx, ty] = pt(mid, rm);
+      const fs = notation === 'camelot' ? (it.m === 'B' ? 17 : 15) : (it.m === 'B' ? 18 : 15);
+      html += `<g style="opacity:${op}">
+        <path class="seg-path" data-n="${it.n}" data-m="${it.m}" d="${arc(it.n, r0, r1)}"
+          fill="${fill(it.n, it.m)}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>
+        <text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central" font-size="${fs}" fill="#0b0b10">${label(it.n, it.m)}</text>
+      </g>`;
+    }
+    // ring labels
+    html += `<text x="${C}" y="${C - R.out1 - 8}" text-anchor="middle" font-size="10" fill="#6c6c80" letter-spacing="2">MAJOR · OUTER</text>`;
+    // centre
+    html += `<circle cx="${C}" cy="${C}" r="${R.in0 - 4}" fill="#15151d" stroke="#2a2a36"/>
+      <text x="${C}" y="${C - 10}" text-anchor="middle" dominant-baseline="central" font-size="30" fill="#f2f2f7">${notation === 'camelot' ? id(c.n, c.m) : shortName(c.n, c.m)}</text>
+      <text x="${C}" y="${C + 18}" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#9a9aab" style="font-weight:500">${notation === 'camelot' ? fullName(c.n, c.m) : id(c.n, c.m) + ' · ' + (c.m === 'A' ? 'minor' : 'major')}</text>
+      <text x="${C}" y="${C + 34}" text-anchor="middle" dominant-baseline="central" font-size="8" fill="#6c6c80" letter-spacing="1.5">NOW PLAYING</text>`;
+    svg.innerHTML = html;
+  }
+
+  svg.addEventListener('click', e => {
+    const p = e.target.closest('.seg-path');
+    if (!p) return;
+    go(+p.dataset.n, p.dataset.m, false);
+  });
+
+  // ---------- list ----------
+  const list = document.getElementById('list');
+  function drawList() {
+    const c = cur(), T = transitions(c.n, c.m);
+    let html = '';
+    for (const tier of ORDER) {
+      if (!tiersOn.has(tier)) continue;
+      const rows = T.filter(t => t.tier === tier);
+      html += `<div class="group" style="--c:${TIERS[tier].color}"><h2><i></i>${TIERS[tier].label} <span style="text-transform:none;letter-spacing:0;font-weight:500;color:#6c6c80">— ${TIERS[tier].sub}</span></h2>`;
+      for (const t of rows) {
+        const main = notation === 'camelot' ? id(t.n, t.m) : shortName(t.n, t.m);
+        const sub = notation === 'camelot' ? shortName(t.n, t.m) : id(t.n, t.m);
+        html += `<button class="card" data-n="${t.n}" data-m="${t.m}">
+          <span class="kchip" style="background:${fill(t.n, t.m)}">${main}<small>${sub}</small></span>
+          <span class="body"><span class="word">${t.word} <b>${t.dir}</b></span><span class="desc">${t.desc}</span></span>
+          <span class="go">›</span></button>`;
+      }
+      html += `</div>`;
+    }
+    list.innerHTML = html || `<div class="empty">Turn on a transition type above.</div>`;
+  }
+  list.addEventListener('click', e => {
+    const b = e.target.closest('.card');
+    if (!b) return;
+    go(+b.dataset.n, b.dataset.m, true);
+  });
+
+  // ---------- trail ----------
+  const trail = document.getElementById('trail');
+  const undoBtn = document.getElementById('undo');
+  function drawTrail() {
+    const h = history.slice(-10);
+    trail.innerHTML = h.map((k, i) =>
+      (i ? '<span class="arrow">→</span>' : '') +
+      `<span class="${i === h.length - 1 ? 'cur' : ''}">${label(k.n, k.m)}</span>`
+    ).join('');
+    trail.scrollLeft = trail.scrollWidth;
+    undoBtn.disabled = history.length < 2;
+  }
+
+  // ---------- actions ----------
+  function go(n, m, fromList) {
+    const c = cur();
+    if (c.n === n && c.m === m) return;
+    history.push({n, m});
+    render();
+    if (fromList) window.scrollTo({top:0, behavior:'smooth'});
+  }
+  undoBtn.addEventListener('click', () => { if (history.length > 1) { history.pop(); render(); } });
+  document.getElementById('reset').addEventListener('click', () => { history = [cur()]; render(); });
+
+  const notBtns = document.querySelectorAll('#notation button');
+  notBtns.forEach(b => b.addEventListener('click', () => { notation = b.dataset.v; render(); }));
+
+  document.querySelectorAll('#filters .chipf').forEach(b => {
+    b.addEventListener('click', () => {
+      const t = b.dataset.t;
+      tiersOn.has(t) ? tiersOn.delete(t) : tiersOn.add(t);
+      render();
+    });
+  });
+
+  function render() {
+    notBtns.forEach(b => b.classList.toggle('on', b.dataset.v === notation));
+    document.querySelectorAll('#filters .chipf').forEach(b => b.classList.toggle('on', tiersOn.has(b.dataset.t)));
+    drawWheel(); drawList(); drawTrail(); save();
+  }
+  render();
+})();
+</script>
+</body>
+</html>
