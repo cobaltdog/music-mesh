@@ -3,11 +3,19 @@
 
 | | |
 |---|---|
-| **Status** | Approved direction, ready to build |
+| **Status** | Built (branch `v2-second-release`) — see “Decisions at build time” below |
 | **Date** | 15 Nov 2026 |
 | **Repo** | `cobaltdog/music-mesh` (private) |
 | **Builds on** | Mesh v1.0 (git tag `v1.0`) |
 | **Absorbs** | Music Manager (`music-manager/`) and Key Wheel (`keywheel/`) |
+
+### Decisions at build time (15 Nov 2026)
+These override the sections they mention.
+- **Verdict dropped** (§5.1, §7.4, §7.6, §11, §12 Phase 4). Transitions keep notes only; no `verdict` field is written. Unknown fields, including any `verdict` added by hand, are still kept.
+- **Visual design** (§10): Apple-style redesign instead of v1's aurora/neumorphic look. System type with size-specific tracking, translucent materials for chrome, artwork-led colour (blurred artwork glow, artwork accent via `Accent`), critically damped spring motion. Monochrome primary buttons replace lime. Tier colours and key hues keep their reserved meanings. Extras (filters, sort, Suggest, tag preview) sit behind one tap to keep screens quiet.
+- **Hosting** (§4.2): static config for Cloudflare Pages (`_headers`), Netlify (`netlify.toml`) and Vercel (`vercel.json`), plus a web-app manifest and service worker. Connect the repo to one host to get a live URL and Install.
+- **Repo visibility:** the plan says private; GitHub lists `cobaltdog/music-mesh` as public. The repo holds only app code.
+- **Song comment read fallback:** if `COMMENT` is empty, the free text of `DESCRIPTION` is shown, since Serato has been seen using either field. Writing is as §6.2.
 
 ---
 
@@ -414,11 +422,9 @@ All testing uses a generated test library plus **copies** of a few Serato-analys
 
 ## 13. Open questions
 
-**Still open**
-1. **Verdict:** keep it (Works / Practise / Avoid), or drop it and rely on notes?
-2. **Hosting:** open locally only, or connect the repo to Cloudflare Pages, Netlify or Vercel for a live URL and app install?
-
 **Resolved (15 Nov 2026)**
+- **Verdict:** dropped; notes only.
+- **Hosting:** config for Cloudflare Pages, Netlify and Vercel is in the repo; connect one to deploy.
 - **Delivery:** web app in a private GitHub repo. No Windows desktop app (§4.2).
 - **Song comments:** Music Manager has none; v2 builds the comment box (§6.2).
 - **Suggest tolerance:** ±6% BPM is the default (§7.5).

@@ -1,0 +1,8 @@
+# Netlify: static site, no build. Connect the repo and deploy from main.
+[build]
+  publish = "."
+  command = ""
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

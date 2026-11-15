@@ -14,63 +14,55 @@ Three personal tools for preparing and playing DJ sets from a local FLAC library
 
 ## 1. Mesh
 
-A transition library. Every song you can mix points to the songs it mixes into, with notes for each transition.
+One app for the whole DJ workflow, reading and writing your local music folder in Chrome, Edge or Arc:
 
-### The `.mesh` file (format v1)
-- Plain UTF-8 JSON, saved as `<name>.mesh` in the **root of the music folder**.
-- Song paths are relative to that folder, so the folder can be moved as a whole.
-- `songCount` is a running counter: each new song gets the next id (1, 2, 3 …). When a transition is added, the starting song is given its id before the destination.
-- Each song stores **only its outgoing transitions**. The destination song has no knowledge of the transition.
-- Title, artist, BPM and key are also stored per song, and re-synced from the file tags every time the mesh is opened.
+- **Rate** (prepare) — Music Manager inside Mesh: Singalong, Energy, Groove, Iconic, Role, Language and a song comment, written into the FLAC tags so Serato shows them.
+- **Add music** (connect) — record a transition between two songs, with notes, the Key Wheel move and BPM difference, and suggestions of unlinked songs that fit.
+- **DJ** (perform) — play from a song, see every branch you know with its move and mixing advice, a mini Key Wheel, “Fits, not yet tried”, filters, sort and a set path with Undo.
 
-```json
-{
-  "format": "mesh", "version": 1, "name": "My Sets",
-  "created": "…", "modified": "…",
-  "songCount": 2,
-  "songs": [
-    { "id": 1, "path": "House/Kairo - Glass Hours.flac",
-      "title": "Glass Hours", "artist": "Kairo", "bpm": 125, "key": "9A", "added": "…",
-      "transitions": [ { "to": 2, "notes": "bass swap on the 2nd drop", "created": "…", "modified": "…" } ] },
-    { "id": 2, "path": "House/Nova Lane - Midnight Circuit.flac", "…": "…", "transitions": [] }
-  ]
-}
-```
+### Running
+- **Local:** open `index.html` from a clone (Chrome / Edge / Arc).
+- **Hosted:** connect the repo to Cloudflare Pages, Netlify or Vercel (static site, no build step, publish the repo root; config files included). The hosted site can be installed as an app from the address bar. It only contains the app code; your music, ratings and `.mesh` never leave your computer.
 
-### Screens
-- **Open:** pick the music folder. If it holds one `.mesh`, it opens; if several, you choose; if none, you name and create one. The last folder is offered again on the next visit.
-- **Home (left):** mesh name, number of songs, number of transitions, longest path (in songs, with the chain shown), search, and Start DJ mode. A progress bar shows the folder being indexed.
-- **Home (right):** Add music mode and the five latest transitions.
-- **Add music mode:** empty starting slot → greyed arrow → empty destination slot, each slot with a + in the middle.
-  - The destination can only be picked after the starting song.
-  - Choosing a song opens a search panel in front; the slot then shows artwork, title, artist, BPM and key.
-  - The arrow fills halfway after the first song and fully after the second.
-  - The notes box appears only once both songs are chosen.
-  - If the starting song already has transitions, they are listed at the bottom with Edit and Delete. Edit loads that transition into the slots. Picking a destination that is already in the list also opens it for editing.
-  - Deletes are staged (crossed out, with undo) until the tick is pressed. Back discards all changes.
-  - A song cannot transition into itself.
-- **DJ mode:** player on the left (artwork, title, artist, BPM, key, play/pause, ±10 s, seek, trail of the songs played). On the right, an arrow per transition with an editable notes box leading to each destination card; clicking a card loads that song. A + adds a new transition from the current song. "Jump to" searches and loads any song.
+### What lives where
+| Fact | Stored in |
+|---|---|
+| Title, artist, artwork, BPM, key | File tags (Serato) |
+| Ratings, role, language, song comment | FLAC tags: `GROUPING` codes, `COMMENT`/`DESCRIPTION` tokens, custom fields |
+| Songs, transitions, notes | `.mesh` file in the folder root |
+| Key-move rules | `js/keyrules.js` (`KeyRules v1`, shared with Key Wheel) |
+| Notation, theme, filters, set path | This browser |
 
-### Other behaviour
-- Reads title, artist, album, BPM, key and embedded artwork from FLAC (Vorbis comments) and MP3 (ID3) tags. Falls back to `cover.jpg` / `folder.jpg` for artwork and to "Artist - Title" filenames for missing tags.
-- Keys are normalised to Camelot (accepts `Am`, `8A`, `A minor`, Open Key).
-- Each transition shows a BPM difference (with half/double-time detection) and a key-compatibility chip.
-- Search covers the whole folder including subfolders, with an "In mesh" filter.
-- Tags are cached in the browser so reopening a large folder is quick.
-- Shortcuts: `space` play/pause, `/` jump/search, `1`–`9` take that branch, `+` add a transition, `←`/`→` skip 10 s, `Ctrl/⌘+Enter` confirm, `Esc` back.
-- Plays whatever Chrome can decode natively: FLAC, MP3, WAV, AAC/M4A.
+### The `.mesh` file (format v2)
+v2 adds only optional fields (`writtenBy`). v1 files open normally and are upgraded on the first save, after the original is copied to `<name>.v1-backup.mesh` (never overwritten). Files from a newer Mesh open read-only. Unknown fields are kept. Before each save Mesh checks whether another device changed the file: if only the other device did, it reloads; if both did, it merges non-overlapping edits (newer `modified` wins for the same pair) and asks when it can't.
+
+### Write safety (ratings)
+Only the Vorbis comment block is rewritten; STREAMINFO, pictures, Serato blocks and audio are copied byte-for-byte, and the new header is parsed back before writing. Saving is refused if the file changed since it was read, and a file locked by Serato gets “Close it in Serato and try again”. MP3s are read-only.
+
+### Shortcuts
+`/` search · `Space` play/pause · `←` `→` 10 s · `Esc` close/back · Rate: `[` `]` prev/next, `C` `P` Chill/Peak, `Enter` save & next · DJ: `1`–`9` take branch, `Backspace` undo, `+` add transition · Add: `Ctrl+Enter` done.
+
+### Code
+| File | Module |
+|---|---|
+| `js/flactags.js` | FlacTags (from Music Manager, unchanged) |
+| `js/scheme.js` | Scheme (from Music Manager) + song comment |
+| `js/accent.js` | Accent (from Music Manager) |
+| `js/keyrules.js` | KeyRules v1 — keys, names, colours, 12 moves, `classify`, BPM rule |
+| `js/library.js` | Id3Read + one folder walk, tag/rating cache, artwork |
+| `js/meshstore.js` | Load, migrate, back up, safe save, merge, longest path |
+| `js/suggest.js` | Suggest + shared filters |
+| `js/app.js`, `js/views.js` | Views, shared player, search, settings, keyboard |
+
+### Tests
+- `node tests/core.test.js [file.flac]` — `classify` against Key Wheel for all 24 × 24 pairs, Key Wheel/KeyRules drift, Scheme comment, FLAC byte-for-byte re-tag, `.mesh` migration and merge, Suggest.
+- `python3 tests/make_library.py SITE/testlib` then `python3 tests/e2e.py` — the whole app in Chrome against a generated library (fake folder API), both themes, phone width.
 
 ### Version history
 | Version | Date | Changes |
 |---|---|---|
-| **v1.0** | 31 Oct 2026 | First release. `.mesh` format v1; Open, Home, Add music and DJ screens; FLAC/MP3 tag and artwork reading; Camelot key normalisation; BPM and key compatibility chips; longest-path calculation (exact without loops, bounded search with loops); glass + neumorphic design; phone-width layout. Pre-release fixes: Enter in search no longer picks a stale result; on phones the add screen stacks vertically with the notes below the destination song. Git tag `v1.0`. |
-| v2.0 "Second Release" | Planned | Merge Music Manager (Rate mode) and Key Wheel (key guidance in Add and DJ modes) into Mesh. Full spec: [`docs/design-plan-v2.md`](docs/design-plan-v2.md). |
-
-### Known limits in v1.0
-- Does not skip the `_Serato_` folder.
-- Does not read Music Manager ratings (GROUPING / custom fields) or role/language tokens.
-- Key compatibility covers same key, relative, ±1, +2 and +7 only — no diagonal or parallel moves.
-- Browser-only: needs a folder permission prompt each session.
+| **v2.0** “Second Release” | 15 Nov 2026 | Rate mode (Music Manager merged in, plus song comments and a changed-on-disk check); Key Wheel moves, advice and a mini wheel in Add and DJ; Suggest; filters and sort; set path with Undo; `.mesh` v2 with backup, read-only for newer files and multi-device merge; Apple-style redesign in dark and light; installable web app; `_Serato_` skipped; unreadable files reported. Verdicts considered and dropped. Spec: [`docs/design-plan-v2.md`](docs/design-plan-v2.md). |
+| v1.0 | 31 Oct 2026 | First release: `.mesh` v1, Open/Home/Add/DJ, FLAC/MP3 tags, Camelot keys, BPM/key chips, longest path. Git tag `v1.0`. |
 
 ---
 
@@ -80,7 +72,7 @@ File: `music-manager/index.html`
 
 Rates songs directly in the existing FLAC library. Ratings are written into the files themselves, so they show up in Serato.
 
-> This HTML build does not include the free-text comment box or the changed-on-disk check listed below. Both are specified for Mesh v2.
+> Retired once Mesh v2's Rate mode is confirmed on your library; kept here for reference. The comment box and changed-on-disk check exist in Mesh v2's Rate mode, not in this file.
 
 - **Library:** choose a folder; scans subfolders for FLAC, skips `_Serato_` and hidden files, reads existing tags, reports unreadable files, remembers the last folder (desktop app).
 - **Track list:** all tracks; filters To rate / Rated / All; search by title, artist, filename or comment; shows how many of the 6 fields are set; marks unsaved changes; progress (rated / left).
@@ -133,6 +125,7 @@ A harmonic-mixing guide on the Camelot wheel. Needs no music files.
 - **Notation:** switch labels between Camelot (8A) and key names (Am); the other notation is always shown alongside.
 - **Remembered** on the same device: notation, current key, set path (last 40) and filters.
 - **Platform:** iPhone-sized web page, can be added to the home screen; no account, no files, no outside data.
+- **Key rules:** carries the same `KeyRules v1` block as Mesh (`js/keyrules.js`); `tests/core.test.js` fails if they drift.
 
 ---
 
@@ -141,7 +134,7 @@ A harmonic-mixing guide on the Camelot wheel. Needs no music files.
 ```
 Music Manager  ──writes──▶  FLAC tags (ratings, role, language, comment)  ◀──reads──  Mesh
 Mesh           ──writes──▶  .mesh file (songs + transitions + notes)
-Key Wheel      ──rules──▶   which key moves are safe / energetic / creative  ──▶  Mesh DJ mode (planned)
+Key Wheel      ──rules──▶   KeyRules v1 (shared)  ──▶  Mesh Add + DJ modes
 ```
 
 Each fact has exactly one home: **ratings in the files, transitions in the `.mesh` file, key theory in the Key Wheel rules.**
@@ -152,15 +145,17 @@ Each fact has exactly one home: **ratings in the files, transitions in the `.mes
 
 ```
 music-mesh/
-├── index.html                  Mesh
-├── keywheel/index.html         Key Wheel (iPhone)
-├── music-manager/index.html    Music Manager
-├── docs/design-plan-v2.md      Mesh v2 "Second Release" design plan
-└── .gitignore                  keeps .mesh, audio and artwork out of the repo
+├── index.html, css/, js/, icons/   Mesh v2
+├── manifest.webmanifest, sw.js     install + offline shell
+├── _headers, netlify.toml, vercel.json   hosting config
+├── keywheel/index.html             Key Wheel (iPhone)
+├── music-manager/index.html        Music Manager (reference)
+├── docs/design-plan-v2.md          v2 design plan
+└── tests/                          core + browser tests, test-library generator
 ```
 
 ## Running
 
-Open `index.html` in Chrome, Edge or Arc and choose your music folder. Nothing is uploaded: the apps read and write files on your computer only.
+Open `index.html` (or the hosted site) in Chrome, Edge or Arc and choose your music folder. Nothing is uploaded: the apps read and write files on your computer only.
 
 Older versions are git tags: `git checkout v1.0` restores Mesh v1.0 exactly.
