@@ -18,7 +18,7 @@ One app for the whole DJ workflow, reading and writing your local music folder i
 
 - **Rate** (prepare) — Music Manager inside Mesh: Singalong, Energy, Groove, Iconic, Role, Language and a song comment, written into the FLAC tags so Serato shows them.
 - **Add music** (connect) — record a transition between two songs, with notes, the Key Wheel move and BPM difference, and suggestions of unlinked songs that fit.
-- **DJ** (perform) — play from a song, see every branch you know with its move and mixing advice, a mini Key Wheel, “Fits, not yet tried”, filters, sort and a set path with Undo.
+- **DJ** (perform) — play from a song, see every branch you know with its move and mixing advice, a mini Key Wheel, “Fits, not yet tried”, filters, and sort by move, BPM or any rating tag. S-Tier songs (every star rating 4+) get a gold border; hover a song for all its ratings.
 
 ### Running
 - **Local:** open `index.html` from a clone (Chrome / Edge / Arc).
@@ -31,7 +31,7 @@ One app for the whole DJ workflow, reading and writing your local music folder i
 | Ratings, role, language, song comment | FLAC tags: `GROUPING` codes, `COMMENT`/`DESCRIPTION` tokens, custom fields |
 | Songs, transitions, notes | `.mesh` file in the folder root |
 | Key-move rules | `js/keyrules.js` (`KeyRules v1`, shared with Key Wheel) |
-| Notation, theme, filters, set path | This browser |
+| Notation, theme, filters, sort, rating tags shown | This browser |
 
 ### The `.mesh` file (format v2)
 v2 adds only optional fields (`writtenBy`). v1 files open normally and are upgraded on the first save, after the original is copied to `<name>.v1-backup.mesh` (never overwritten). Files from a newer Mesh open read-only. Unknown fields are kept. Before each save Mesh checks whether another device changed the file: if only the other device did, it reloads; if both did, it merges non-overlapping edits (newer `modified` wins for the same pair) and asks when it can't.
@@ -40,7 +40,7 @@ v2 adds only optional fields (`writtenBy`). v1 files open normally and are upgra
 Only the Vorbis comment block is rewritten; STREAMINFO, pictures, Serato blocks and audio are copied byte-for-byte, and the new header is parsed back before writing. Saving is refused if the file changed since it was read, and a file locked by Serato gets “Close it in Serato and try again”. MP3s are read-only.
 
 ### Shortcuts
-`/` search · `Space` play/pause · `←` `→` 10 s · `Esc` close/back · Rate: `[` `]` prev/next, `C` `P` Chill/Peak, `Enter` save & next · DJ: `1`–`9` take branch, `Backspace` undo, `+` add transition · Add: `Ctrl+Enter` done.
+`/` search · `Space` play/pause · `←` `→` 10 s · `Esc` close/back · Rate: `[` `]` prev/next, `C` `P` Chill/Peak, `Enter` save & next · DJ: `1`–`9` take branch, `+` add transition · Add: `Ctrl+Enter` done.
 
 ### Code
 | File | Module |
@@ -61,6 +61,7 @@ Only the Vorbis comment block is rewritten; STREAMINFO, pictures, Serato blocks 
 ### Version history
 | Version | Date | Changes |
 |---|---|---|
+| **v2.1** | 16 Nov 2026 | Two rating tags on every song, chosen in Settings (Singalong + Energy by default), with numbers coloured blue (1) → red (5); DJ sort by any rating tag, applied to branches and “Fits, not yet tried”; S-Tier gold border when every star rating is 4 or more; hover card with all star ratings; larger mini Key Wheel with its legend behind an ⓘ button; set path removed. |
 | **v2.0** “Second Release” | 15 Nov 2026 | Rate mode (Music Manager merged in, plus song comments and a changed-on-disk check); Key Wheel moves, advice and a mini wheel in Add and DJ; Suggest; filters and sort; set path with Undo; `.mesh` v2 with backup, read-only for newer files and multi-device merge; Apple-style redesign in dark and light; installable web app; `_Serato_` skipped; unreadable files reported. Verdicts considered and dropped. Spec: [`docs/design-plan-v2.md`](docs/design-plan-v2.md). |
 | v1.0 | 31 Oct 2026 | First release: `.mesh` v1, Open/Home/Add/DJ, FLAC/MP3 tags, Camelot keys, BPM/key chips, longest path. Git tag `v1.0`. |
 

@@ -1,6 +1,6 @@
 /* Mesh service worker: network first, cached app shell as the offline fallback.
    Only the app's own code is cached — never music, artwork or .mesh files (those are read from your folder). */
-const CACHE = 'mesh-2.0.0';
+const CACHE = 'mesh-2.1.0';
 const SHELL = ['./', 'index.html', 'css/mesh.css', 'js/util.js', 'js/keyrules.js', 'js/flactags.js', 'js/scheme.js', 'js/accent.js',
   'js/library.js', 'js/meshstore.js', 'js/suggest.js', 'js/app.js', 'js/views.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });

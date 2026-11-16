@@ -9,7 +9,6 @@
     rate: { filter: Prefs.get('rateFilter'), q: '', drafts: new Map(), busy: false },
     add: null,
     dj: { wheelKey: null, fitsOpen: false, fitsMore: false },
-    setPath: [],
     notice: null,
     ratingsBlocked: false,
   };
@@ -40,7 +39,24 @@
     return `<span class="chip na">${na}<small>key</small></span>`;
   }
   const bpmChip = (i, na = '—') => i.bpm ? `<span class="chip">${fmtBpm(i.bpm)}<small>BPM</small></span>` : `<span class="chip na">${na}<small>BPM</small></span>`;
-  function energyChip(i) { const n = i.rating?.ENERGY; return n ? `<span class="chip" title="Energy ${n} of 5"><small>Energy</small>${n}</span>` : ''; }
+  /* Two rating tags shown on songs (chosen in Settings; Singalong + Energy by default). Numbers run blue (1) → red (5). */
+  const RATING_LABEL = { SINGALONG: 'Singalong', ENERGY: 'Energy', GROOVE: 'Groove', ICONIC: 'Iconic' };
+  function shownTags() {
+    const t = Prefs.get('shownTags');
+    const ok = Array.isArray(t) ? t.filter(k => k in RATING_LABEL).slice(0, 2) : [];
+    return ok.length ? ok : ['SINGALONG', 'ENERGY'];
+  }
+  function ratingChips(i) {
+    if (!i.flac && !Scheme.RATINGS.some(d => i.rating?.[d.key])) return '';
+    return shownTags().map(k => {
+      const n = i.rating?.[k] || 0, L = RATING_LABEL[k];
+      return n ? `<span class="chip rt" title="${L} ${n} of 5"><small>${L}</small><b class="r${n}">${n}</b></span>`
+        : `<span class="chip rt na" title="${L} not rated"><small>${L}</small>–</span>`;
+    }).join('');
+  }
+  /* S-Tier: every star rating (Singalong, Energy, Groove, Iconic) is 4 or more. */
+  const isSTier = r => !!r && Scheme.RATINGS.every(d => (r[d.key] || 0) >= 4);
+  const sTierTag = i => isSTier(i.rating) ? '<span class="stier" title="S-Tier: every rating is 4 stars or more">S-Tier</span>' : '';
   function roleLangChips(i) {
     const r = i.rating || {};
     return [...(r.ROLE || []).map(x => `<span class="tag">${esc(Scheme.ROLES.find(o => o.id === x)?.label || x)}</span>`),
@@ -78,6 +94,52 @@
     });
   }
   function hydrate(root = document) { $$('[data-art]:not([data-h])', root).forEach(el => { el.dataset.h = 1; artIO.observe(el); }); }
+
+  /* =================================================================== hover card: all star ratings at a glance */
+  const HC = (() => {
+    const el = document.createElement('div');
+    el.className = 'hovercard'; el.setAttribute('role', 'tooltip'); el.id = 'hovercard'; el.hidden = true;
+    document.body.appendChild(el);
+    let t = 0, target = null;
+    const fill = (n) => Array.from({ length: 5 }, (_, k) => `<i class="${k < n ? 'on r' + n : ''}"></i>`).join('');
+    function html(p) {
+      const i = info(p), r = i.rating || Scheme.empty();
+      const roles = (r.ROLE || []).map(x => Scheme.ROLES.find(o => o.id === x)?.label || x);
+      const langs = (r.LANGUAGE || []).map(x => Scheme.LANGUAGES.find(o => o.id === x)?.label || x);
+      return `<div class="hc-h"><b>${esc(i.title)}</b>${sTierTag(i)}</div>
+        ${Scheme.RATINGS.map(d => `<div class="hc-r"><span>${d.label}</span><span class="hc-stars" aria-label="${r[d.key] || 0} of 5">${fill(r[d.key] || 0)}</span><b class="${r[d.key] ? 'r' + r[d.key] : 'na'}">${r[d.key] || '–'}</b></div>`).join('')}
+        <div class="hc-f">${[roles.join(' · '), langs.join(' · ')].filter(Boolean).map(esc).join('<span> | </span>') || '<span class="na">No role or language yet</span>'}</div>
+        ${!i.flac && !Scheme.RATINGS.some(d => r[d.key]) ? '<div class="hc-f na">Not rated (ratings are FLAC only)</div>' : ''}`;
+    }
+    function place(x, y) {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      let left = x + 16, top = y + 14;
+      if (left + w > innerWidth - 10) left = x - w - 16;
+      if (top + h > innerHeight - 10) top = y - h - 14;
+      el.style.left = Math.max(10, left) + 'px'; el.style.top = Math.max(10, top) + 'px';
+    }
+    function show(node, x, y) {
+      el.innerHTML = html(node.dataset.hc); el.hidden = false; place(x, y);
+      requestAnimationFrame(() => el.classList.add('on'));
+      node.setAttribute('aria-describedby', 'hovercard');
+    }
+    function hide() { clearTimeout(t); el.classList.remove('on'); el.hidden = true; target?.removeAttribute('aria-describedby'); target = null; }
+    document.addEventListener('pointerover', e => {
+      if (e.pointerType === 'touch') return;
+      const n = e.target.closest('[data-hc]');
+      if (n === target) return;
+      hide(); if (!n) return;
+      target = n; const { clientX: x, clientY: y } = e;
+      t = setTimeout(() => { if (target === n && n.isConnected) show(n, x, y); }, 140);
+    });
+    document.addEventListener('pointermove', e => { if (!el.hidden && target) place(e.clientX, e.clientY); }, { passive: true });
+    document.addEventListener('focusin', e => {
+      const n = e.target.closest?.('[data-hc]'); hide(); if (!n || !n.matches(':focus-visible')) return;
+      target = n; const r = n.getBoundingClientRect(); show(n, r.left + 40, r.bottom - 10);
+    });
+    ['scroll', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, hide, { capture: true, passive: true }));
+    return { hide };
+  })();
 
   /* =================================================================== toast / dialog / popover */
   let toastT;
@@ -367,7 +429,6 @@
     try { r = await MeshStore.load(fh, dir); }
     catch (e) { toast(`${fh.name}: ${e.message}`, { bad: true }); return; }
     A.notice = r.newer ? 'newer' : r.migrated ? 'migrated' : null;
-    A.setPath = loadSetPath();
     A.now = null; A.rate.drafts.clear(); A.add = null;
     Library.artCache.clear();
     $('#v-open').hidden = true; $('#app').hidden = false;
@@ -419,8 +480,6 @@
   });
   addEventListener('focus', async () => { if (A.view !== 'open' && await MeshStore.checkDisk()) { toast('Updated with changes from another device.'); renderSoon(); } });
 
-  function loadSetPath() { try { const v = JSON.parse(localStorage.getItem('mesh2.setPath:' + MeshStore.handle.name) || '[]'); return Array.isArray(v) ? v.slice(-40) : []; } catch { return []; } }
-  function saveSetPath() { try { localStorage.setItem('mesh2.setPath:' + MeshStore.handle.name, JSON.stringify(A.setPath.slice(-40))); } catch {} }
 
   /* =================================================================== banners shared by views */
   function bannersHTML() {
@@ -559,9 +618,9 @@
       this.list.innerHTML = this.items.length
         ? this.items.map((p, i) => {
           const it = info(p);
-          return `<li role="option" id="so-${i}" aria-selected="${i === 0}"><button class="row ${i === 0 ? 'sel' : ''}" data-i="${i}" tabindex="-1">${artHTML(p)}
+          return `<li role="option" id="so-${i}" aria-selected="${i === 0}"><button class="row ${i === 0 ? 'sel' : ''} ${isSTier(it.rating) ? 's-tier' : ''}" data-hc="${esc(p)}" data-i="${i}" tabindex="-1">${artHTML(p)}
             <span class="meta"><span class="t">${esc(it.title)}</span><span class="a">${esc(it.artist)}${it.comment ? ` · <i>${esc(it.comment)}</i>` : ''}</span></span>
-            <span class="right">${ctx && ctx.path !== p ? moveBadge(ctx, it, { sm: true, keys: false }) : ''}${energyChip(it)}${bpmChip(it)}${keyChip(it)}${badge(p)}</span></button></li>`;
+            <span class="right">${ctx && ctx.path !== p ? moveBadge(ctx, it, { sm: true, keys: false }) : ''}${sTierTag(it)}${ratingChips(it)}${bpmChip(it)}${keyChip(it)}${badge(p)}</span></button></li>`;
         }).join('')
         : `<li class="list-empty">${Library.scan.state !== 'done' ? 'Still reading the folder — results appear as tracks are read.' : 'No songs match.'}</li>`;
       $('#sheet-n').textContent = this.items.length ? fmtN(this.items.length) + (this.items.length >= 150 ? '+' : '') + ' songs' : '';
@@ -624,9 +683,9 @@
   function openJump() { Sheet.open({ title: 'Jump to', context: A.now, onPick: p => djGo(p) }); }
 
   /* the rest of the views are in part 2 below */
-  window.MeshApp = { A, info, keyChip, bpmChip, energyChip, roleLangChips, pips, moveBadge, moveOf, bpmDiff, artHTML, hydrate, toast, ask, Pop, seg, placeThumbs, bindSeg,
+  window.MeshApp = { HC, A, info, keyChip, bpmChip, ratingChips, isSTier, sTierTag, shownTags, RATING_LABEL, roleLangChips, pips, moveBadge, moveOf, bpmDiff, artHTML, hydrate, toast, ask, Pop, seg, placeThumbs, bindSeg,
     Player, transportHTML, bindTransport, syncTransport, go, render, renderSoon, persist, bannersHTML, Sheet, search, openSearch, openJump, filters, isFiltered, filterCount,
-    readOnlyMesh, keyText, toggleIn, defaultBadge, saveSetPath, renderNav, renderMini, pickFolder, openRoot, backToOpen, setAmbient };
+    readOnlyMesh, keyText, toggleIn, defaultBadge, renderNav, renderMini, pickFolder, openRoot, backToOpen, setAmbient };
   // forward declarations used above; defined in part 2
   function startAdd(...a) { return window.MeshApp.startAdd(...a); }
   function renderRate() { return window.MeshApp.renderRate(); }
