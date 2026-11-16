@@ -10,7 +10,7 @@ const hashHue = s => { let h = 2166136261; for (const c of String(s)) h = Math.i
 const fmtT = s => { if (!isFinite(s) || s < 0) s = 0; const m = Math.floor(s / 60), x = Math.floor(s % 60); return m + ':' + String(x).padStart(2, '0'); };
 const fmtBpm = b => b == null ? '—' : (b % 1 ? b.toFixed(1) : String(b));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 
 /* IndexedDB key/value store: folder handles, tag cache. Same database as Mesh v1, so the last folder carries over. */
 const idb = (() => {
@@ -30,7 +30,7 @@ const idb = (() => {
 /* Settings on this device. */
 const Prefs = (() => {
   const P = 'mesh2.';
-  const DEF = { notation: 'camelot', theme: 'system', tolerance: 6, tiers: ['harmonic', 'energy', 'creative'], roles: [], minEnergy: 0, langs: [], sort: 'move', setPath: [], rateFilter: 'todo' };
+  const DEF = { notation: 'camelot', theme: 'system', tolerance: 6, tiers: ['harmonic', 'energy', 'creative'], roles: [], minEnergy: 0, langs: [], sort: 'move', shownTags: ['SINGALONG', 'ENERGY'], rateFilter: 'todo' };
   const get = k => { try { const v = localStorage.getItem(P + k); return v == null ? structuredClone(DEF[k]) : JSON.parse(v); } catch { return structuredClone(DEF[k]); } };
   const set = (k, v) => { try { localStorage.setItem(P + k, JSON.stringify(v)); } catch {} };
   const reset = () => { try { Object.keys(localStorage).filter(k => k.startsWith(P)).forEach(k => localStorage.removeItem(k)); } catch {} };
@@ -67,6 +67,7 @@ const ICON = (() => {
     filter: s('<path d="M4 6h16M7 12h10M10 18h4"/>'),
     sort: s('<path d="M7 4v16M3.5 16.5 7 20l3.5-3.5M17 20V4M13.5 7.5 17 4l3.5 3.5"/>'),
     music: s('<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'),
+    info: s('<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/>'),
     download: s('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
   };
 })();

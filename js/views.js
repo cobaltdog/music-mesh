@@ -2,8 +2,8 @@
 /* Mesh v2 — Rate, Add music, DJ, Settings, keyboard and boot (continues js/app.js). */
 (() => {
   const M = window.MeshApp;
-  const { A, info, keyChip, bpmChip, energyChip, roleLangChips, pips, moveBadge, moveOf, bpmDiff, artHTML, hydrate, toast, ask, Pop, seg, placeThumbs, bindSeg,
-    Player, transportHTML, bindTransport, go, render, renderSoon, persist, bannersHTML, Sheet, filters, isFiltered, filterCount, readOnlyMesh, keyText, toggleIn, defaultBadge, saveSetPath, renderNav } = M;
+  const { A, info, keyChip, bpmChip, ratingChips, isSTier, sTierTag, shownTags, RATING_LABEL, roleLangChips, pips, moveBadge, moveOf, bpmDiff, artHTML, hydrate, toast, ask, Pop, seg, placeThumbs, bindSeg,
+    Player, transportHTML, bindTransport, go, render, renderSoon, persist, bannersHTML, Sheet, filters, isFiltered, filterCount, readOnlyMesh, keyText, toggleIn, defaultBadge, renderNav } = M;
   const player = $('#player');
 
   /* =================================================================== RATE (Music Manager inside Mesh) */
@@ -225,7 +225,7 @@
     return `<div class="slot filled" id="slot${which}">${tag}<button class="slot-btn" aria-label="Change ${which === 'A' ? 'starting' : 'destination'} song: ${esc(i.title)}">
       ${artHTML(path, 'hero')}
       <div class="slot-meta"><span class="t">${esc(i.title)}</span><span class="a">${esc(i.artist)}</span>
-        <div class="chips">${bpmChip(i)}${keyChip(i)}${energyChip(i)}${i.flac ? pips(i.rating) : ''}</div>
+        <div class="chips">${bpmChip(i)}${keyChip(i)}${ratingChips(i)}${sTierTag(i)}</div>
         ${roleLangChips(i) ? `<div class="chips">${roleLangChips(i)}</div>` : ''}
         ${i.missing ? '<div class="chips"><span class="tag bad">File not found</span></div>' : ''}</div></button>
       <button class="icon-btn sm slot-x" aria-label="Clear ${which === 'A' ? 'starting' : 'destination'} song">${ICON.x}</button></div>`;
@@ -284,8 +284,8 @@
     return `<section class="suggest"><div class="section-h"><h2>Fits after this song</h2><span class="sub">${fmtN(all.length)} songs · ±${Prefs.get('tolerance')}% BPM</span></div>
       ${groups.map(([t, xs]) => `<div class="suggest-group tier-${t}"><h3><i></i>${KeyRules.TIERS[t].label}</h3><ul class="list">${xs.map(({ e: d }) => {
         const di = info(d.path);
-        return `<li><button class="row" data-suggest="${esc(d.path)}">${artHTML(d.path)}<span class="meta"><span class="t">${esc(di.title)}</span><span class="a">${esc(di.artist)}</span></span>
-          <span class="right">${moveBadge(a, di, { sm: true })}${bpmDiff(a, di)}${energyChip(di)}</span></button></li>`;
+        return `<li><button class="row ${isSTier(di.rating) ? 's-tier' : ''}" data-suggest="${esc(d.path)}" data-hc="${esc(d.path)}">${artHTML(d.path)}<span class="meta"><span class="t">${esc(di.title)}</span><span class="a">${sTierTag(di)}${esc(di.artist)}</span></span>
+          <span class="right">${moveBadge(a, di, { sm: true })}${bpmDiff(a, di)}${ratingChips(di)}</span></button></li>`;
       }).join('')}</ul></div>`).join('')}
       ${all.length > shown.length ? `<button class="btn sm" id="sg-more">Show more</button>` : ''}</section>`;
   }
@@ -356,25 +356,23 @@
   }
 
   /* =================================================================== DJ */
-  function djGo(path, { record = true } = {}) {
-    if (record && A.setPath[A.setPath.length - 1] !== path) { A.setPath.push(path); if (A.setPath.length > 40) A.setPath.shift(); saveSetPath(); }
+  function djGo(path) {
     A.dj.wheelKey = null; A.dj.fitsMore = false;
     Player.load(path, { autoplay: !player.paused });
     if (A.view === 'dj') renderDJ();
   }
-  function djUndo() {
-    if (A.setPath.length < 2) return;
-    A.setPath.pop(); saveSetPath();
-    djGo(A.setPath[A.setPath.length - 1], { record: false });
-  }
+  /* DJ sort: move type, closest BPM, or any rating tag (highest first). Applies to branches and "Fits, not yet tried". */
+  const SORTS = [['move', 'Move type'], ['bpm', 'Closest BPM'], ['SINGALONG', 'Singalong'], ['ENERGY', 'Energy'], ['GROOVE', 'Groove'], ['ICONIC', 'Iconic']];
+  function sortKey() { let s = Prefs.get('sort'); if (s === 'energy') s = 'ENERGY'; return SORTS.some(x => x[0] === s) ? s : 'move'; }
+  const sortLabel = () => SORTS.find(x => x[0] === sortKey())[1];
   function branchesOf(path) {
     const i = info(path), s = i.song; if (!s) return { all: [], shown: [] };
     const f = filters(), tiers = new Set(f.tiers);
     const all = s.transitions.map(t => { const d = MeshStore.byId.get(t.to); if (!d) return null; const di = info(d.path); return { t, d, di, mv: moveOf(i, di), b: KeyRules.bpm(i.bpm, di.bpm) }; }).filter(Boolean);
     const shown = all.filter(x => (!(x.mv.tier in Suggest.TIER_RANK) || tiers.has(x.mv.tier)) && Suggest.passes({ rating: x.di.rating }, f));
-    const sort = Prefs.get('sort');
+    const sort = sortKey();
     const rank = x => x.mv.tier in Suggest.TIER_RANK ? Suggest.TIER_RANK[x.mv.tier] : 3;
-    shown.sort((x, y) => sort === 'energy' ? (y.di.rating.ENERGY || 0) - (x.di.rating.ENERGY || 0) || rank(x) - rank(y)
+    shown.sort((x, y) => sort in RATING_LABEL ? (y.di.rating[sort] || 0) - (x.di.rating[sort] || 0) || rank(x) - rank(y) || (x.b ? x.b.abs : 99) - (y.b ? y.b.abs : 99)
       : sort === 'bpm' ? (x.b ? x.b.abs : 99) - (y.b ? y.b.abs : 99)
       : rank(x) - rank(y) || (x.b ? x.b.abs : 99) - (y.b ? y.b.abs : 99));
     return { all, shown };
@@ -397,20 +395,19 @@
           <span class="now">${player.paused ? 'CUED' : 'NOW PLAYING'}${s ? ` · id ${s.id}` : ' · not in mesh'}</span>
           <h1 class="title-1">${esc(i.title)}</h1>
           <span class="artist">${esc(i.artist)}</span>
-          <div class="chips" style="margin-top:8px">${bpmChip(i)}${keyChip(i)}${energyChip(i)}${i.flac ? pips(i.rating) : ''}${roleLangChips(i)}</div>
+          <div class="chips" style="margin-top:8px">${bpmChip(i)}${keyChip(i)}${ratingChips(i)}${sTierTag(i)}${roleLangChips(i)}</div>
           ${i.comment ? `<p class="deck-comment">“${esc(i.comment)}”</p>` : ''}
           ${i.missing ? '<div class="chips"><span class="tag bad">File not found</span></div>' : ''}
         </div>
         <div>${transportHTML()}</div>
         <div class="deck-tools">${miniWheel(i, all)}
-          <div class="wheel-legend">${KeyRules.ORDER.map(t => `<span class="tier-${t}"><i></i>${KeyRules.TIERS[t].label}</span>`).join('')}<span><i class="dot"></i>Has a transition</span>
-            ${A.dj.wheelKey ? `<span class="on-key">Suggest: ${esc(keyText(KeyRules.parse(A.dj.wheelKey)).main)} only <button class="btn plain sm" id="wk-clear">Clear</button></span>` : '<span class="foot">Tap a key to see songs in it.</span>'}</div>
+          <button class="icon-btn sm wheel-info" id="wheel-info" aria-label="Key Wheel legend" aria-haspopup="dialog" title="Legend">${ICON.info}</button>
+          ${A.dj.wheelKey ? `<p class="wheel-key">Suggestions in ${esc(keyText(KeyRules.parse(A.dj.wheelKey)).main)} only <button class="btn plain sm" id="wk-clear">Clear</button></p>` : ''}
         </div>
-        ${setPathHTML()}
       </aside>
       <section aria-label="Branches">
         <div class="branches-h"><h2 class="title-2">Next</h2><span class="sub">${all.length ? `${shown.length}${shown.length !== all.length ? ` of ${all.length}` : ''}` : ''}</span><span class="grow"></span>
-          <button class="btn sm" id="dj-sort">${ICON.sort} ${({ move: 'Move type', energy: 'Energy', bpm: 'Closest BPM' })[Prefs.get('sort')]}</button>
+          <button class="btn sm" id="dj-sort" aria-haspopup="menu">${ICON.sort} ${sortLabel()}</button>
           <button class="btn sm" id="dj-filter" aria-haspopup="dialog">${ICON.filter} Filter${filterCount() ? ` <span class="badge-count">${filterCount()}</span>` : ''}</button>
           <button class="icon-btn filled" id="dj-jump" aria-label="Jump to a song (/)" title="Jump to (/)">${ICON.search}</button></div>
         <ol class="list" id="branches" style="list-style:none">${all.length
@@ -429,14 +426,12 @@
     $('#dj-filter').onclick = e => openFilterPop(e.currentTarget);
     $('#dj-sort').onclick = e => openSortPop(e.currentTarget);
     $('#wk-clear') && ($('#wk-clear').onclick = () => { A.dj.wheelKey = null; renderDJ(); });
+    $('#wheel-info').onclick = e => openLegend(e.currentTarget);
     v.onclick = e => {
       const g = e.target.closest('[data-go]'); if (g) { djGo(g.dataset.go); return; }
-      const tp = e.target.closest('[data-trail]'); if (tp) { const k = +tp.dataset.trail; A.setPath = A.setPath.slice(0, k + 1); saveSetPath(); djGo(A.setPath[k], { record: false }); return; }
       const ad = e.target.closest('[data-addfit]'); if (ad) { go('add', { prefill: path, b: ad.dataset.addfit, returnTo: 'dj' }); return; }
       const seg = e.target.closest('.miniwheel [data-key]'); if (seg) { A.dj.wheelKey = A.dj.wheelKey === seg.dataset.key ? null : seg.dataset.key; A.dj.fitsOpen = true; renderDJ(); return; }
-      if (e.target.closest('#sp-undo')) djUndo();
-      else if (e.target.closest('#sp-clear')) { A.setPath = [path]; saveSetPath(); renderDJ(); }
-      else if (e.target.closest('#fits-more')) { A.dj.fitsMore = true; renderDJ(); }
+      if (e.target.closest('#fits-more')) { A.dj.fitsMore = true; renderDJ(); }
     };
     $('#fits')?.addEventListener('toggle', e => { A.dj.fitsOpen = e.target.open; });
     $$('#branches .note').forEach(ta => {
@@ -449,14 +444,14 @@
   }
   function branchHTML(i, x, n) {
     const { t, d, di, mv } = x;
-    return `<li class="branch tier-${mv.tier}" style="--i:${n}">
+    return `<li class="branch tier-${mv.tier} ${isSTier(di.rating) ? 's-tier' : ''}" style="--i:${n}">
       <span class="idx" aria-hidden="true">${n < 9 ? n + 1 : '·'}</span>
       <div class="branch-body">
-        <div class="branch-top">${moveBadge(i, di)}${bpmDiff(i, di)}</div>
+        <div class="branch-top">${moveBadge(i, di)}${bpmDiff(i, di)}${sTierTag(di)}</div>
         <p class="branch-tip">${esc(mv.desc)}</p>
         <textarea class="note" rows="1" data-from="${i.song.id}" data-to="${t.to}" placeholder="Add notes for this mix…" aria-label="Notes: ${esc(i.title)} into ${esc(di.title)}" ${readOnlyMesh() ? 'readonly' : ''}>${esc(t.notes || '')}</textarea>
-        <button class="dest" data-go="${esc(d.path)}" aria-label="Play ${esc(di.title)} by ${esc(di.artist)}${n < 9 ? ` (key ${n + 1})` : ''}">${artHTML(d.path, 'md')}
-          <span class="meta"><span class="t">${esc(di.title)}</span><span class="a">${esc(di.artist)}</span><span class="chips">${bpmChip(di)}${keyChip(di)}${energyChip(di)}${roleLangChips(di)}</span></span>
+        <button class="dest" data-go="${esc(d.path)}" data-hc="${esc(d.path)}" aria-label="Play ${esc(di.title)} by ${esc(di.artist)}${n < 9 ? ` (key ${n + 1})` : ''}">${artHTML(d.path, 'md')}
+          <span class="meta"><span class="t">${esc(di.title)}</span><span class="a">${esc(di.artist)}</span><span class="chips">${bpmChip(di)}${keyChip(di)}${ratingChips(di)}${roleLangChips(di)}</span></span>
           <span class="go">${ICON.chevR}</span></button>
       </div></li>`;
   }
@@ -466,26 +461,18 @@
     const s = MeshStore.byPath.get(i.path);
     const linked = new Set(s ? s.transitions.map(t => MeshStore.byId.get(t.to)?.path).filter(Boolean) : []);
     const all = Suggest.candidates(e, Library.entries.values(), linked, { tolerance: Prefs.get('tolerance'), filters: filters(), onlyKey: A.dj.wheelKey });
+    const sort = sortKey();                     // 'move' keeps Suggest's own ranking
+    if (sort === 'bpm') all.sort((x, y) => x.b.abs - y.b.abs);
+    else if (sort in RATING_LABEL) all.sort((x, y) => (y.e.rating?.[sort] || 0) - (x.e.rating?.[sort] || 0) || Suggest.TIER_RANK[x.mv.tier] - Suggest.TIER_RANK[y.mv.tier] || x.b.abs - y.b.abs);
     const shown = all.slice(0, A.dj.fitsMore ? 60 : 12);
-    return `<details class="disclose fits" id="fits" ${A.dj.fitsOpen ? 'open' : ''}><summary>${ICON.chevD} Fits, not yet tried <span class="muted">· ${fmtN(all.length)}${A.dj.wheelKey ? ` in ${esc(keyText(KeyRules.parse(A.dj.wheelKey)).main)}` : ''}</span></summary>
+    return `<details class="disclose fits" id="fits" ${A.dj.fitsOpen ? 'open' : ''}><summary>${ICON.chevD} Fits, not yet tried <span class="muted">· ${fmtN(all.length)}${sort !== 'move' ? ` · by ${esc(sortLabel().toLowerCase())}` : ''}${A.dj.wheelKey ? ` in ${esc(keyText(KeyRules.parse(A.dj.wheelKey)).main)}` : ''}</span></summary>
       ${shown.length ? `<ul class="list card" style="padding:4px;margin-top:6px">${shown.map(({ e: d }) => {
         const di = info(d.path);
-        return `<li><div class="row" style="padding:6px 8px"><button class="row" style="padding:0;flex:1;min-width:0" data-go="${esc(d.path)}">${artHTML(d.path)}<span class="meta"><span class="t">${esc(di.title)}</span><span class="a">${esc(di.artist)}</span></span>
-          <span class="right">${moveBadge(i, di, { sm: true })}${bpmDiff(i, di)}${energyChip(di)}</span></button>
+        return `<li><div class="row ${isSTier(di.rating) ? 's-tier' : ''}" style="padding:6px 8px"><button class="row" style="padding:0;flex:1;min-width:0" data-go="${esc(d.path)}" data-hc="${esc(d.path)}">${artHTML(d.path)}<span class="meta"><span class="t">${esc(di.title)}</span><span class="a">${sTierTag(di)}${esc(di.artist)}</span></span>
+          <span class="right">${moveBadge(i, di, { sm: true })}${bpmDiff(i, di)}${ratingChips(di)}</span></button>
           ${readOnlyMesh() ? '' : `<button class="icon-btn sm filled add-it" data-addfit="${esc(d.path)}" aria-label="Add transition into ${esc(di.title)}" title="Add as a transition">${ICON.plus}</button>`}</div></li>`;
       }).join('')}</ul>${all.length > shown.length ? '<button class="btn sm" id="fits-more" style="margin-top:8px">Show more</button>' : ''}`
         : `<p class="sub" style="padding:4px 4px 0">Nothing unlinked fits within ±${Prefs.get('tolerance')}% BPM${isFiltered() || A.dj.wheelKey ? ' and the current filters' : ''}.</p>`}</details>`;
-  }
-  function setPathHTML() {
-    const sp = A.setPath, start = Math.max(0, sp.length - 10);
-    if (sp.length < 1) return '';
-    return `<div class="setpath"><div class="setpath-h"><span class="sub">Set path · ${sp.length}</span>
-        <button class="btn plain sm" id="sp-undo" ${sp.length < 2 ? 'disabled' : ''} title="Back one song (Backspace)">${ICON.undo} Undo</button>
-        <button class="btn plain sm" id="sp-clear" ${sp.length < 2 ? 'disabled' : ''}>Clear</button></div>
-      <div class="trail" id="trail">${sp.slice(start).map((p, k) => {
-        const i = info(p), kt = keyText(i.k), idx = start + k, cur = idx === sp.length - 1;
-        return `${k ? `<span class="sep">${ICON.chevR}</span>` : ''}<button class="${cur ? 'cur' : ''}" data-trail="${idx}" title="${esc(i.title)}">${artHTML(p, 'xs')}<span>${esc(i.title)}</span>${kt ? `<small>${esc(kt.main)}</small>` : ''}</button>`;
-      }).join('')}</div></div>`;
   }
   /* Mini Key Wheel: current key in the centre, Key Wheel colours and rings, tier outlines on targets, a dot on keys you have a transition into. */
   function miniWheel(i, branches) {
@@ -524,6 +511,11 @@
       <text x="${C}" y="${C - 5}" text-anchor="middle" dominant-baseline="central" font-size="17" fill="var(--label)" font-weight="700">${ct ? esc(ct.main) : '?'}</text>
       <text x="${C}" y="${C + 11}" text-anchor="middle" dominant-baseline="central" font-size="7.5" fill="var(--label-2)">${c ? esc(ct.alt) : 'no key'}</text></svg>`;
   }
+  function openLegend(anchor) {
+    Pop.open(anchor, `<h4>Key Wheel</h4><div class="wheel-legend">${KeyRules.ORDER.map(t => `<span class="tier-${t}"><i></i><b>${KeyRules.TIERS[t].label}</b> ${KeyRules.TIERS[t].sub}</span>`).join('')}
+      <span><i class="dot"></i>You have a transition into this key</span><span><i class="cur"></i>Current key, in the centre and outlined</span></div>
+      <p class="foot" style="margin:12px 0 0">Tap a key to show only suggestions in it. Faded keys are off-wheel from here.</p>`, null, { width: 300 });
+  }
   function resetFilters() { Prefs.set('tiers', ['harmonic', 'energy', 'creative']); Prefs.set('roles', []); Prefs.set('minEnergy', 0); Prefs.set('langs', []); A.dj.wheelKey = null; Pop.close(true); renderSoon(); }
   function openFilterPop(anchor) {
     const draw = el => {
@@ -544,8 +536,8 @@
     Pop.open(anchor, '', draw, { width: 330 });
   }
   function openSortPop(anchor) {
-    const cur = Prefs.get('sort');
-    Pop.open(anchor, `<div class="menu" role="menu">${[['move', 'Move type'], ['energy', 'Energy'], ['bpm', 'Closest BPM']].map(([v, l]) => `<button role="menuitemradio" aria-checked="${cur === v}" data-sort="${v}">${ICON.check}${l}</button>`).join('')}</div>`, el => {
+    const cur = sortKey();
+    Pop.open(anchor, `<div class="menu" role="menu">${SORTS.map(([v, l], k) => `${k === 2 ? '<span class="menu-sep" role="separator"></span>' : ''}<button role="menuitemradio" aria-checked="${cur === v}" data-sort="${v}">${ICON.check}${l}</button>`).join('')}</div>`, el => {
       $$('[data-sort]', el).forEach(b => b.onclick = () => { Prefs.set('sort', b.dataset.sort); Pop.close(true); renderDJ(); $('#dj-sort')?.focus(); });
     }, { width: 200 });
   }
@@ -561,6 +553,7 @@
   function openSettings(anchor) {
     Pop.open(anchor, `<h4>Key notation</h4>${seg('not', [['camelot', 'Camelot · 8A'], ['names', 'Key names · Am']], Prefs.get('notation'), 'full')}
       <h4>Appearance</h4>${seg('theme', [['dark', 'Dark'], ['light', 'Light'], ['system', 'Match system']], Prefs.get('theme'), 'full')}
+      <h4>Rating tags shown on songs <span class="foot">· pick two</span></h4><div class="pills" id="set-tags">${Scheme.RATINGS.map(d => `<button class="pill" data-tag="${d.key}" aria-pressed="${shownTags().includes(d.key)}">${d.label}</button>`).join('')}</div>
       <h4>BPM tolerance for suggestions</h4>${seg('tol', [['3', '±3%'], ['6', '±6%'], ['8', '±8%']], Prefs.get('tolerance'), 'full')}
       <div class="row2"><span class="foot">Mesh ${APP_VERSION}</span><button class="btn plain sm danger" id="set-reset">Reset this device</button></div>
       <div class="row2" style="margin-top:8px"><button class="btn sm" id="set-switch">${ICON.folder} Switch folder or mesh</button>${MeshStore.memoryOnly ? `<button class="btn sm" data-act="download">${ICON.download} .mesh</button>` : ''}</div>`, el => {
@@ -568,10 +561,18 @@
       bindSeg(el, 'not', v => { Prefs.set('notation', v); renderSoon(); });
       bindSeg(el, 'theme', v => { Prefs.set('theme', v); applyTheme(); requestAnimationFrame(() => placeThumbs(el)); renderSoon(); });
       bindSeg(el, 'tol', v => { Prefs.set('tolerance', +v); renderSoon(); });
+      $$('[data-tag]', el).forEach(b => b.onclick = () => {
+        let t = shownTags().slice(); const k = b.dataset.tag;
+        if (t.includes(k)) { if (t.length === 1) return; t = t.filter(x => x !== k); }
+        else { t.push(k); if (t.length > 2) t.shift(); }                 // keep two: the oldest choice drops off
+        Prefs.set('shownTags', Scheme.RATINGS.map(d => d.key).filter(x => t.includes(x)));
+        $$('[data-tag]', el).forEach(x => x.setAttribute('aria-pressed', String(t.includes(x.dataset.tag))));
+        renderSoon();
+      });
       $('#set-reset', el).onclick = async () => {
         Pop.close(true);
         const ok = await ask({ title: 'Reset this device?', text: 'Notation, theme, filters, BPM tolerance and set paths go back to their defaults. Your files and .mesh are not touched.', actions: [{ label: 'Reset', value: true, kind: 'danger' }, { label: 'Cancel', value: false, cancel: true }] });
-        if (ok) { Prefs.reset(); A.setPath = A.now ? [A.now] : []; applyTheme(); renderSoon(); toast('Settings reset.'); }
+        if (ok) { Prefs.reset(); applyTheme(); renderSoon(); toast('Settings reset.'); }
       };
       $('#set-switch', el).onclick = async () => { Pop.close(true); if (await go('home')) M.backToOpen(); };
     }, { width: 340 });
@@ -613,7 +614,6 @@
     }
     if (A.view === 'dj') {
       if (/^[1-9]$/.test(e.key)) { const b = $$('#branches .dest')[+e.key - 1]; if (b) djGo(b.dataset.go); }
-      else if (e.key === 'Backspace') { e.preventDefault(); djUndo(); }
     }
   });
   addEventListener('beforeunload', e => { if (A.rate.drafts.size || (MeshStore.memoryOnly && MeshStore.dirty())) { e.preventDefault(); e.returnValue = ''; } });
